@@ -55,3 +55,18 @@ export default function DoctorsScreen() {
           setUserId(id);
           setIsAdmin(role === 'admin');
         }
+
+        // Fetch Doctors List
+        const response = await axios.get(`${BASE_URL}/doctors`);
+        if (isActive) setDoctors(response.data);
+      } catch (error) {
+        console.log("Error fetching data:", error);
+      } finally {
+        if (isActive) setLoading(false);
+      }
+    };
+
+    initializeData();
+    return () => { isActive = false; };
+  }, []);
+
