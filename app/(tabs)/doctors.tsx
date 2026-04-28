@@ -70,3 +70,109 @@ export default function DoctorsScreen() {
     return () => { isActive = false; };
   }, []);
 
+  // ================= ADMIN FUNCTIONS =================
+
+  const openAdminModal = (doctor: any = null) => {
+    if (doctor) {
+      setEditDocId(doctor._id || doctor.id);
+      setDocName(doctor.name || '');
+      setDocSpecialty(doctor.specialty || '');
+      setDocFee(doctor.fee ? doctor.fee.toString() : '');
+    } else {
+      setEditDocId('');
+      setDocName('');
+      setDocSpecialty('');
+      setDocFee('');
+    }
+    setDoctorModalVisible(true);
+  };
+
+  const handleSaveDoctor = async () => {
+    if (!docName || !docSpecialty) return alert("Name and Specialty are required.");
+
+    try {
+      if (editDocId) {
+        // UPDATE Existing Doctor
+        await axios.put(`${BASE_URL}/doctors/${editDocId}`, {
+          name: docName,
+          specialty: docSpecialty,
+          fee: docFee
+        });
+        setDoctors(prev => prev.map(doc => doc._id === editDocId || doc.id === editDocId ? { ...doc, name: docName, specialty: docSpecialty, fee: docFee } : doc));
+      } else {
+        // ADD New Doctor
+        const response = await axios.post(`${BASE_URL}/doctors`, {
+          name: docName,
+          specialty: docSpecialty,
+          fee: docFee
+        });
+        setDoctors(prev => [...prev, response.data]);
+      }
+      setDoctorModalVisible(false);
+    } catch (error: any) {
+      console.log("Error saving doctor:", error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+      alert(`Failed to save doctor: ${errorMessage}`);
+    }
+  };
+
+  const handleDeleteDoctor = async (id: string, name: string) => {
+    const executeDelete = async () => {
+      try {
+        await axios.delete(`${BASE_URL}/doctors/${id}`);
+        setDoctors(prev => prev.filter(doc => doc._id !== id && doc.id !== id));
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+        alert(`Failed to delete doctor: ${errorMessage}`);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Are you sure you want to delete ${name}?`)) executeDelete();
+    } else {
+      Alert.alert("Delete", `Remove ${name} from the system?`, [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: executeDelete }
+      ]);
+    }
+  };
+
+  // ================= PATIENT FUNCTIONS =================
+
+  const openBookingModal = (doctor: any) => {
+    setSelectedDoctor(doctor);
+    setBookDate('');
+    setBookTime('');
+    setWebTimeStr(''); // Reset the web time input display
+    setDateObj(new Date()); 
+    setBookingModalVisible(true);
+  };
+
+  const handleBookAppointment = async () => {
+    if (!bookDate || !bookTime) return alert("Please select a date and time.");
+
+    try {
+      await axios.post(`${BASE_URL}/appointments/book`, {
+        userId: userId,
+        doctorId: selectedDoctor._id || selectedDoctor.id,
+        doctorName: selectedDoctor.name,
+        specialty: selectedDoctor.specialty,
+        date: bookDate,
+        time: bookTime,
+        status: 'Pending'
+      });
+
+      setBookingModalVisible(false);
+      
+      if (Platform.OS === 'web') window.alert("Appointment Booked Successfully!");
+      else Alert.alert("Success", "Appointment Booked Successfully!");
+    } catch (error: any) {
+      console.log("FULL ERROR DETAILS:", error.response?.data || error.message);
+      
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+      
+      if (Platform.OS === 'web') window.alert(`Booking Failed: ${errorMessage}`);
+      else Alert.alert("Booking Failed", errorMessage);
+    }
+  };
+
