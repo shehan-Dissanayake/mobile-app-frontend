@@ -176,3 +176,154 @@ export default function DoctorsScreen() {
     }
   };
 
+  // ================= TIMEZONE-SAFE PICKER HANDLERS =================
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setDateObj(selectedDate);
+      
+      // Build the YYYY-MM-DD string locally
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      
+      setBookDate(`${year}-${month}-${day}`);
+    }
+  };
+
+  const handleTimeChange = (event: any, selectedDate?: Date) => {
+    setShowTimePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setDateObj(selectedDate);
+      
+      // Extract local time correctly
+      let hours = selectedDate.getHours();
+      let minutes = selectedDate.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; 
+      const strMinutes = minutes < 10 ? '0' + minutes : minutes;
+      
+      setBookTime(`${hours}:${strMinutes} ${ampm}`);
+    }
+  };
+
+  // ================= RENDER =================
+
+  return (
+    <SafeAreaView style={styles.container}>
+      
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={styles.pageTitle}>{isAdmin ? 'Manage Doctors' : 'Find a Doctor'}</Text>
+        {isAdmin && (
+          <TouchableOpacity style={styles.addButton} onPress={() => openAdminModal(null)}>
+            <Text style={styles.addButtonText}>+ Add Doctor</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* DOCTORS LIST */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <ActivityIndicator size="large" color="#4F46E5" style={{ marginTop: 50 }} />
+        ) : doctors.length === 0 ? (
+          <Text style={styles.emptyText}>No doctors found in the system.</Text>
+        ) : (
+          doctors.map((doctor, index) => {
+            const docId = doctor._id || doctor.id || index.toString();
+            return (
+              <View key={docId} style={styles.card}>
+                <View style={styles.headerRow}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{doctor.name ? doctor.name.charAt(0).toUpperCase() : 'D'}</Text>
+                  </View>
+                  <View style={styles.info}>
+                    <Text style={styles.name}>{doctor.name}</Text>
+                    <Text style={styles.specialty}>{doctor.specialty}</Text>
+                    <Text style={styles.fee}>Fee: <Text style={styles.feeAmount}>{doctor.fee || 'N/A'}</Text></Text>
+                  </View>
+                </View>
+
+                {/* CONDITIONAL BUTTONS BASED ON ROLE */}
+                {isAdmin ? (
+                  <View style={styles.adminActionRow}>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => openAdminModal(doctor)}>
+                      <Text style={styles.editBtnText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDeleteDoctor(docId, doctor.name)}>
+                      <Text style={styles.deleteBtnText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.bookButton} onPress={() => openBookingModal(doctor)}>
+                    <Text style={styles.bookButtonText}>Book Appointment</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })
+        )}
+        <View style={{height: 40}}/>
+      </ScrollView>
+
+      {/* ADMIN MODAL: Add/Edit Doctor */}
+      <Modal animationType="slide" transparent={true} visible={doctorModalVisible} onRequestClose={() => setDoctorModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>{editDocId ? 'Edit Doctor' : 'Add New Doctor'}</Text>
+            
+            <TextInput style={styles.input} placeholder="Doctor Name" value={docName} onChangeText={setDocName} />
+            <TextInput style={styles.input} placeholder="Specialty (e.g. Cardiologist)" value={docSpecialty} onChangeText={setDocSpecialty} />
+            <TextInput style={styles.input} placeholder="Consultation Fee (e.g. Rs. 2500)" value={docFee} onChangeText={setDocFee} />
+
+            <TouchableOpacity style={styles.primaryModalBtn} onPress={handleSaveDoctor}>
+              <Text style={styles.primaryModalBtnText}>Save Doctor</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryModalBtn} onPress={() => setDoctorModalVisible(false)}>
+              <Text style={styles.secondaryModalBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* PATIENT MODAL: Book Appointment */}
+      <Modal animationType="slide" transparent={true} visible={bookingModalVisible} onRequestClose={() => setBookingModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalTitle}>Book with {selectedDoctor?.name}</Text>
+            
+            {/* DATE SELECTION */}
+            <Text style={styles.label}>Select Date</Text>
+            {Platform.OS === 'web' ? (
+              // Web native date picker fallback
+              <input 
+                type="date" 
+                style={{ 
+                  backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', 
+                  borderRadius: 12, padding: 16, fontSize: 16, color: '#1E293B', 
+                  marginBottom: 16, width: '100%', boxSizing: 'border-box' 
+                }}
+                value={bookDate}
+                onChange={(e) => setBookDate(e.target.value)} 
+              />
+            ) : (
+              // Mobile DatePicker
+              <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+                <Text style={{ color: bookDate ? '#1E293B' : '#94A3B8' }}>
+                  {bookDate ? bookDate : 'Tap to select a date'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {showDatePicker && Platform.OS !== 'web' && (
+              <DateTimePicker
+                value={dateObj}
+                mode="date"
+                display="default"
+                onChange={handleDateChange}
+                minimumDate={new Date()} 
+              />
+            )}
+            
