@@ -327,3 +327,99 @@ export default function DoctorsScreen() {
               />
             )}
             
+            {/* TIME SELECTION */}
+            <Text style={styles.label}>Select Time</Text>
+            {Platform.OS === 'web' ? (
+              // Web native time picker fallback
+              <input 
+                type="time" 
+                style={{ 
+                  backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', 
+                  borderRadius: 12, padding: 16, fontSize: 16, color: '#1E293B', 
+                  marginBottom: 16, width: '100%', boxSizing: 'border-box' 
+                }}
+                value={webTimeStr} // THE FIX: Uses strict 24hr string to keep UI visible
+                onChange={(e) => {
+                  const timeVal = e.target.value;
+                  setWebTimeStr(timeVal); // Keeps the input box visually populated
+                  
+                  if(timeVal) {
+                    let [hours, minutes] = timeVal.split(':');
+                    let h = parseInt(hours);
+                    const ampm = h >= 12 ? 'PM' : 'AM';
+                    h = h % 12;
+                    h = h ? h : 12; 
+                    setBookTime(`${h}:${minutes} ${ampm}`); // Still saves correct 12hr string for backend!
+                  }
+                }} 
+              />
+            ) : (
+              // Mobile TimePicker
+              <TouchableOpacity style={styles.input} onPress={() => setShowTimePicker(true)}>
+                <Text style={{ color: bookTime ? '#1E293B' : '#94A3B8' }}>
+                  {bookTime ? bookTime : 'Tap to select a time'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {showTimePicker && Platform.OS !== 'web' && (
+              <DateTimePicker
+                value={dateObj}
+                mode="time"
+                display="default"
+                onChange={handleTimeChange}
+              />
+            )}
+
+            <TouchableOpacity style={styles.primaryModalBtn} onPress={handleBookAppointment}>
+              <Text style={styles.primaryModalBtnText}>Confirm Booking</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryModalBtn} onPress={() => setBookingModalVisible(false)}>
+              <Text style={styles.secondaryModalBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
+  pageTitle: { fontSize: 24, fontWeight: '800', color: '#0F172A' },
+  addButton: { backgroundColor: '#14B8A6', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  addButtonText: { color: 'white', fontWeight: '700', fontSize: 14 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 10 },
+  emptyText: { textAlign: 'center', color: '#64748B', marginTop: 40, fontSize: 16 },
+  
+  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  avatarText: { fontSize: 24, fontWeight: '800', color: '#4F46E5' },
+  info: { flex: 1 },
+  name: { fontSize: 18, fontWeight: '800', color: '#1E293B', marginBottom: 4 },
+  specialty: { fontSize: 14, color: '#64748B', marginBottom: 6 },
+  fee: { fontSize: 14, color: '#14B8A6', fontWeight: '600' },
+  feeAmount: { fontWeight: '700' },
+  
+  bookButton: { backgroundColor: '#4F46E5', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  bookButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+  
+  adminActionRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
+  editBtn: { flex: 1, backgroundColor: '#EEF2FF', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  editBtnText: { color: '#4F46E5', fontWeight: '700' },
+  deleteBtn: { flex: 1, backgroundColor: '#FEF2F2', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  deleteBtnText: { color: '#DC2626', fontWeight: '700' },
+
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 20 },
+  modalView: { width: '100%', backgroundColor: 'white', borderRadius: 24, padding: 24 },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: '#0F172A', marginBottom: 20, textAlign: 'center' },
+  label: { fontSize: 12, fontWeight: '700', color: '#64748B', marginBottom: 8, textTransform: 'uppercase' },
+  input: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 16, fontSize: 16, color: '#1E293B', marginBottom: 16 },
+  primaryModalBtn: { backgroundColor: '#4F46E5', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
+  primaryModalBtnText: { color: 'white', fontWeight: '700', fontSize: 16 },
+  secondaryModalBtn: { backgroundColor: '#F8FAFC', paddingVertical: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
+  secondaryModalBtnText: { color: '#64748B', fontWeight: '700', fontSize: 16 },
+});
