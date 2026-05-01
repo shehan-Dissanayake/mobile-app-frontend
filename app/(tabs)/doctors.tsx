@@ -1,13 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- CHANGE THIS IF YOU ARE ON ANDROID EMULATOR TO 'http://10.0.2.2:5000/api' ---
 const BASE_URL = Platform.OS === 'web' 
   ? 'http://localhost:5000/api' 
-  : 'http://192.168.1.45/api';
+  : 'http://10.233.96.81:5000/api';
 
 export default function DoctorsScreen() {
   const [doctors, setDoctors] = useState<any[]>([]);
@@ -20,6 +23,11 @@ export default function DoctorsScreen() {
   // Modals States
   const [doctorModalVisible, setDoctorModalVisible] = useState(false);
   const [bookingModalVisible, setBookingModalVisible] = useState(false);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+
+  // Router
+  const { specialty } = useLocalSearchParams();
+  const router = useRouter();
 
   // Form States - For Admin adding/editing doctors
   const [editDocId, setEditDocId] = useState('');
@@ -141,11 +149,17 @@ export default function DoctorsScreen() {
 
   const openBookingModal = (doctor: any) => {
     setSelectedDoctor(doctor);
+    setProfileModalVisible(false); // Close profile if open
     setBookDate('');
     setBookTime('');
     setWebTimeStr(''); // Reset the web time input display
     setDateObj(new Date()); 
     setBookingModalVisible(true);
+  };
+
+  const openProfileModal = (doctor: any) => {
+    setSelectedDoctor(doctor);
+    setProfileModalVisible(true);
   };
 
   const handleBookAppointment = async () => {
@@ -216,7 +230,16 @@ export default function DoctorsScreen() {
       
       {/* HEADER */}
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>{isAdmin ? 'Manage Doctors' : 'Find a Doctor'}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {specialty && (
+            <TouchableOpacity onPress={() => router.push('/doctors')} style={{ marginRight: 10 }}>
+              <Ionicons name="arrow-back" size={24} color="#0F172A" />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.pageTitle}>
+            {isAdmin ? 'Manage Doctors' : (specialty ? `${specialty}s` : 'Find a Doctor')}
+          </Text>
+        </View>
         {isAdmin && (
           <TouchableOpacity style={styles.addButton} onPress={() => openAdminModal(null)}>
             <Text style={styles.addButtonText}>+ Add Doctor</Text>
@@ -231,7 +254,9 @@ export default function DoctorsScreen() {
         ) : doctors.length === 0 ? (
           <Text style={styles.emptyText}>No doctors found in the system.</Text>
         ) : (
-          doctors.map((doctor, index) => {
+          doctors
+            .filter((doctor) => !specialty || doctor.specialty?.toLowerCase() === (specialty as string).toLowerCase())
+            .map((doctor, index) => {
             const docId = doctor._id || doctor.id || index.toString();
             return (
               <View key={docId} style={styles.card}>
@@ -257,8 +282,8 @@ export default function DoctorsScreen() {
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <TouchableOpacity style={styles.bookButton} onPress={() => openBookingModal(doctor)}>
-                    <Text style={styles.bookButtonText}>Book Appointment</Text>
+                  <TouchableOpacity style={styles.bookButton} onPress={() => openProfileModal(doctor)}>
+                    <Text style={styles.bookButtonText}>View Profile</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -283,6 +308,75 @@ export default function DoctorsScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.secondaryModalBtn} onPress={() => setDoctorModalVisible(false)}>
               <Text style={styles.secondaryModalBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* PATIENT MODAL: Doctor Profile */}
+      <Modal animationType="slide" transparent={true} visible={profileModalVisible} onRequestClose={() => setProfileModalVisible(false)}>
+        <View style={styles.profileModalOverlay}>
+          <View style={styles.profileModalView}>
+            <TouchableOpacity style={styles.closeProfileBtn} onPress={() => setProfileModalVisible(false)}>
+              <Ionicons name="close" size={24} color="#64748B" />
+            </TouchableOpacity>
+            
+            <View style={styles.profileHeader}>
+              <View style={styles.profileAvatar}>
+                <Text style={styles.profileAvatarText}>{selectedDoctor?.name ? selectedDoctor.name.charAt(0).toUpperCase() : 'D'}</Text>
+              </View>
+              <Text style={styles.profileName}>{selectedDoctor?.name}</Text>
+              <Text style={styles.profileSpecialty}>{selectedDoctor?.specialty}</Text>
+            </View>
+            
+            <View style={styles.profileDetailsCard}>
+              <View style={styles.profileDetailRow}>
+                <View style={styles.profileDetailIconBox}>
+                  <Ionicons name="star" size={20} color="#F59E0B" />
+                </View>
+                <View>
+                  <Text style={styles.profileDetailLabel}>Rating</Text>
+                  <Text style={styles.profileDetailValue}>4.9 (120+ Reviews)</Text>
+                </View>
+              </View>
+              
+              <View style={styles.profileDivider} />
+              
+              <View style={styles.profileDetailRow}>
+                <View style={[styles.profileDetailIconBox, {backgroundColor: '#ECFDF5'}]}>
+                  <Ionicons name="cash-outline" size={20} color="#10B981" />
+                </View>
+                <View>
+                  <Text style={styles.profileDetailLabel}>Consultation Fee</Text>
+                  <Text style={[styles.profileDetailValue, {color: '#10B981'}]}>
+                    ${selectedDoctor?.fee ? selectedDoctor.fee.toString().replace(/[^0-9.]/g, '') : '0'}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.profileDivider} />
+              
+              <View style={styles.profileDetailRow}>
+                <View style={[styles.profileDetailIconBox, {backgroundColor: '#EEF2FF'}]}>
+                  <Ionicons name="time-outline" size={20} color="#4F46E5" />
+                </View>
+                <View>
+                  <Text style={styles.profileDetailLabel}>Availability</Text>
+                  <Text style={styles.profileDetailValue}>Mon - Fri, 09:00 AM - 05:00 PM</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.profileAboutSection}>
+              <Text style={styles.profileAboutTitle}>About Doctor</Text>
+              <Text style={styles.profileAboutText}>
+                {selectedDoctor?.name} is a highly experienced {selectedDoctor?.specialty} dedicated to providing the best care.
+                Known for professional excellence and a compassionate approach to patient well-being.
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.bookNowActionBtn} onPress={() => openBookingModal(selectedDoctor)}>
+              <Text style={styles.bookNowActionBtnText}>Book Appointment</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -387,39 +481,63 @@ export default function DoctorsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
-  pageTitle: { fontSize: 24, fontWeight: '800', color: '#0F172A' },
-  addButton: { backgroundColor: '#14B8A6', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  addButtonText: { color: 'white', fontWeight: '700', fontSize: 14 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: Platform.OS === 'android' ? 40 : 20, paddingBottom: 16 },
+  pageTitle: { fontSize: 32, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
+  addButton: { backgroundColor: '#4F46E5', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  addButtonText: { color: 'white', fontWeight: '800', fontSize: 14 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 10 },
-  emptyText: { textAlign: 'center', color: '#64748B', marginTop: 40, fontSize: 16 },
+  emptyText: { textAlign: 'center', color: '#64748B', marginTop: 40, fontSize: 16, fontWeight: '500' },
   
-  card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  avatarText: { fontSize: 24, fontWeight: '800', color: '#4F46E5' },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.06, shadowRadius: 20, elevation: 4, borderWidth: 1, borderColor: 'rgba(226, 232, 240, 0.8)' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 18, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 },
+  avatarText: { fontSize: 26, fontWeight: '900', color: '#4F46E5' },
   info: { flex: 1 },
-  name: { fontSize: 18, fontWeight: '800', color: '#1E293B', marginBottom: 4 },
-  specialty: { fontSize: 14, color: '#64748B', marginBottom: 6 },
-  fee: { fontSize: 14, color: '#14B8A6', fontWeight: '600' },
-  feeAmount: { fontWeight: '700' },
+  name: { fontSize: 20, fontWeight: '800', color: '#1E293B', marginBottom: 6 },
+  specialty: { fontSize: 15, color: '#64748B', marginBottom: 8, fontWeight: '500' },
+  fee: { fontSize: 14, color: '#10B981', fontWeight: '700', backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, overflow: 'hidden' },
+  feeAmount: { fontWeight: '800' },
   
-  bookButton: { backgroundColor: '#4F46E5', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  bookButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 14 },
+  bookButton: { backgroundColor: '#4F46E5', borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  bookButtonText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 },
   
-  adminActionRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  editBtn: { flex: 1, backgroundColor: '#EEF2FF', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  editBtnText: { color: '#4F46E5', fontWeight: '700' },
-  deleteBtn: { flex: 1, backgroundColor: '#FEF2F2', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  deleteBtnText: { color: '#DC2626', fontWeight: '700' },
+  adminActionRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  editBtn: { flex: 1, backgroundColor: '#EEF2FF', paddingVertical: 14, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#C7D2FE' },
+  editBtnText: { color: '#4F46E5', fontWeight: '800', fontSize: 14 },
+  deleteBtn: { flex: 1, backgroundColor: '#FEF2F2', paddingVertical: 14, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#FECACA' },
+  deleteBtnText: { color: '#EF4444', fontWeight: '800', fontSize: 14 },
 
-  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 20 },
-  modalView: { width: '100%', backgroundColor: 'white', borderRadius: 24, padding: 24 },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: '#0F172A', marginBottom: 20, textAlign: 'center' },
-  label: { fontSize: 12, fontWeight: '700', color: '#64748B', marginBottom: 8, textTransform: 'uppercase' },
-  input: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 16, fontSize: 16, color: '#1E293B', marginBottom: 16 },
-  primaryModalBtn: { backgroundColor: '#4F46E5', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
-  primaryModalBtnText: { color: 'white', fontWeight: '700', fontSize: 16 },
-  secondaryModalBtn: { backgroundColor: '#F8FAFC', paddingVertical: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
-  secondaryModalBtnText: { color: '#64748B', fontWeight: '700', fontSize: 16 },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.6)', padding: 20 },
+  modalView: { width: '100%', backgroundColor: 'white', borderRadius: 28, padding: 28, shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 10 },
+  modalTitle: { fontSize: 22, fontWeight: '900', color: '#0F172A', marginBottom: 24, textAlign: 'center' },
+  label: { fontSize: 12, fontWeight: '800', color: '#64748B', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 18, fontSize: 16, color: '#1E293B', marginBottom: 20, fontWeight: '500' },
+  primaryModalBtn: { backgroundColor: '#4F46E5', paddingVertical: 18, borderRadius: 16, alignItems: 'center', marginBottom: 12, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  primaryModalBtnText: { color: 'white', fontWeight: '800', fontSize: 16 },
+  secondaryModalBtn: { backgroundColor: '#F1F5F9', paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
+  secondaryModalBtnText: { color: '#475569', fontWeight: '800', fontSize: 16 },
+  
+  // Profile Modal Styles
+  profileModalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15, 23, 42, 0.6)' },
+  profileModalView: { backgroundColor: '#F8FAFC', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingTop: 32, shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 20, maxHeight: '90%' },
+  closeProfileBtn: { position: 'absolute', top: 20, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  profileHeader: { alignItems: 'center', marginBottom: 24 },
+  profileAvatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6, borderWidth: 4, borderColor: '#FFFFFF' },
+  profileAvatarText: { fontSize: 40, fontWeight: '900', color: '#4F46E5' },
+  profileName: { fontSize: 24, fontWeight: '900', color: '#0F172A', marginBottom: 4 },
+  profileSpecialty: { fontSize: 16, color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  
+  profileDetailsCard: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 20, marginBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2, borderWidth: 1, borderColor: '#F1F5F9' },
+  profileDetailRow: { flexDirection: 'row', alignItems: 'center' },
+  profileDetailIconBox: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#FEF3C7', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  profileDetailLabel: { fontSize: 13, color: '#64748B', fontWeight: '500', marginBottom: 2 },
+  profileDetailValue: { fontSize: 16, color: '#1E293B', fontWeight: '800' },
+  profileDivider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 16 },
+  
+  profileAboutSection: { marginBottom: 32 },
+  profileAboutTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 12 },
+  profileAboutText: { fontSize: 15, color: '#475569', lineHeight: 24, fontWeight: '400' },
+  
+  bookNowActionBtn: { backgroundColor: '#4F46E5', paddingVertical: 18, borderRadius: 20, alignItems: 'center', shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
+  bookNowActionBtnText: { color: 'white', fontWeight: '800', fontSize: 18, letterSpacing: 0.5 },
 });
